@@ -1,7 +1,5 @@
 package com.socket.tcp_rawlongconn.client.view;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -9,17 +7,16 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.socket.tcp_rawlongconn.R;
-import com.socket.tcp_rawlongconn.client.service.EchoClient;
 import com.socket.tcp_rawlongconn.utils.NetUtils;
 
-import java.io.IOException;
 import java.net.SocketException;
 
 public class ClientStartActivity extends AppCompatActivity {
     public TextView txtServerIp;
     public TextView txtServerPort;
-
 
 
     @Override
@@ -42,15 +39,15 @@ public class ClientStartActivity extends AppCompatActivity {
             txtServerIp = findViewById(R.id.server_ip);
             txtServerPort = findViewById(R.id.server_port);
 
-            if (TextUtils.isEmpty(txtServerIp.getText()) || TextUtils.isEmpty(txtServerPort.getText())){
+            if (TextUtils.isEmpty(txtServerIp.getText()) || TextUtils.isEmpty(txtServerPort.getText())) {
                 Toast.makeText(ClientStartActivity.this, "请键入正确的Ip和端口号", Toast.LENGTH_LONG).show();
-            }else{
+            } else {
                 String serverIp = txtServerIp.getText().toString();
                 int serverPort = Integer.parseInt(txtServerPort.getText().toString());
-                Intent intent = new Intent(ClientStartActivity.this,ClientActivity.class);
+                Intent intent = new Intent(ClientStartActivity.this, ClientActivity.class);
                 intent.putExtra("localIp", finalLocalip);
-                intent.putExtra("serverIp",serverIp);
-                intent.putExtra("serverPort",serverPort);
+                intent.putExtra("serverIp", serverIp);
+                intent.putExtra("serverPort", serverPort);
                 startActivity(intent);
             }
         });
