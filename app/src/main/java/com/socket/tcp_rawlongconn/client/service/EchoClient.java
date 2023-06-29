@@ -5,20 +5,12 @@ import android.util.Log;
 import com.google.gson.Gson;
 import com.socket.tcp_rawlongconn.model.CMessage;
 
-import org.json.JSONObject;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.net.Socket;
-
 public class EchoClient {
     private static final String TAG = "EchoClient";
 
     private final LongLiveSocket mLongLiveSocket;
 
-    public EchoClient(String localIp,String host, int port) {
+    public EchoClient(String localIp, String host, int port) {
         mLongLiveSocket = new LongLiveSocket(localIp,
                 host, port,
                 (cMsgStr, offset, len) ->
@@ -31,7 +23,7 @@ public class EchoClient {
     }
 
     public void send(String msg) {
-        mLongLiveSocket.write(msg.getBytes(), new LongLiveSocket.WritingCallback() {
+        mLongLiveSocket.write((msg + "\n").getBytes(), new LongLiveSocket.WritingCallback() {
             @Override
             public void onSuccess() {
                 Log.d(TAG, "onSuccess: ");
