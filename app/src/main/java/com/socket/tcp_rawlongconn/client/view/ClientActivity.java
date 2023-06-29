@@ -1,7 +1,5 @@
 package com.socket.tcp_rawlongconn.client.view;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
@@ -10,13 +8,12 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.socket.tcp_rawlongconn.R;
 import com.socket.tcp_rawlongconn.client.service.EchoClient;
 import com.socket.tcp_rawlongconn.model.CMessage;
-import com.socket.tcp_rawlongconn.model.ConnState;
 import com.socket.tcp_rawlongconn.model.MsgType;
-
-import java.io.IOException;
 
 public class ClientActivity extends AppCompatActivity {
     private String localIp;
@@ -25,6 +22,7 @@ public class ClientActivity extends AppCompatActivity {
     private EchoClient mEchoClient;
     private EditText txtSndMsg;
     private TextView txtRcvMsg;
+
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,19 +31,19 @@ public class ClientActivity extends AppCompatActivity {
         Intent intent = getIntent();
         localIp = intent.getStringExtra("localIp");
         serverIp = intent.getStringExtra("serverIp");
-        serverPort = intent.getIntExtra("serverPort",8888);
+        serverPort = intent.getIntExtra("serverPort", 8888);
 
         TextView txtlocalIp = findViewById(R.id.localip);
         txtlocalIp.setText(ipPortToString());
 
         txtSndMsg = findViewById(R.id.sndMsg);
         Button btnSndMsg = findViewById(R.id.btnSndMsg);
-        btnSndMsg.setOnClickListener(v ->{
+        btnSndMsg.setOnClickListener(v -> {
             String sndMsg = txtSndMsg.getText().toString();
             if (TextUtils.isEmpty(sndMsg)) {
                 return;
             }
-            mEchoClient = new EchoClient(localIp,serverIp,serverPort);
+            mEchoClient = new EchoClient(localIp, serverIp, serverPort);
             CMessage cMessage = new CMessage();
             cMessage.setCode(200);
             cMessage.setFrom(localIp);
