@@ -2,6 +2,12 @@ package com.socket.tcp_rawlongconn.client.service;
 
 import android.util.Log;
 
+import com.google.gson.Gson;
+import com.socket.tcp_rawlongconn.model.CMessage;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -12,10 +18,15 @@ public class EchoClient {
 
     private final LongLiveSocket mLongLiveSocket;
 
-    public EchoClient(String host, int port) {
-        mLongLiveSocket = new LongLiveSocket(
+    public EchoClient(String localIp,String host, int port) {
+        mLongLiveSocket = new LongLiveSocket(localIp,
                 host, port,
-                (data, offset, len) -> Log.i(TAG, "EchoClient: received: " + new String(data, offset, len)),
+                (cMsgStr, offset, len) ->
+                {
+                    Gson gson = new Gson();
+                    CMessage cMsg = gson.fromJson(String.valueOf(cMsgStr), CMessage.class);
+                    Log.i(TAG, "EchoClient: received: " + cMsg.toString());
+                },
                 () -> true);
     }
 
