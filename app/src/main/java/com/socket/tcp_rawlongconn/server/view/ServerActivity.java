@@ -12,6 +12,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.socket.tcp_rawlongconn.R;
+import com.socket.tcp_rawlongconn.model.CMessage;
 import com.socket.tcp_rawlongconn.model.Callback;
 import com.socket.tcp_rawlongconn.server.service.EchoServer;
 
@@ -46,11 +47,11 @@ public class ServerActivity extends AppCompatActivity {
 
     private Callback<Void> rcvMsgCallback = new Callback<Void>() {
         @Override
-        public void onEvent(int code, String msg, Void unused) {
-            if (code == 200) {
+        public void onEvent(CMessage cMessage, Void unused) {
+            if (cMessage.getCode() == 200) {
                 Toast.makeText(ServerActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
-                if(!msg.isEmpty()){
-                    txtRcvMsg.setText(msg);
+                if(!cMessage.getMsg().isEmpty()){
+                    txtRcvMsg.setText(cMessage.getMsg());
                 }
             } else {
                 Toast.makeText(ServerActivity.this, "连接失败", Toast.LENGTH_SHORT).show();
