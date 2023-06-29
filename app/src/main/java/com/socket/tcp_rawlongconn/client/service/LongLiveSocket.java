@@ -5,6 +5,12 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
 
+import com.socket.tcp_rawlongconn.model.CMessage;
+import com.socket.tcp_rawlongconn.model.MsgType;
+
+import org.json.JSONException;
+
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -17,9 +23,9 @@ import java.util.concurrent.TimeUnit;
 public final class LongLiveSocket {
     private static final String TAG = "LongLiveSocket";
 
-    private static final long RETRY_INTERVAL_MILLIS = 3 * 1000;
-    private static final long HEART_BEAT_INTERVAL_MILLIS = 5 * 1000;
-    private static final long HEART_BEAT_TIMEOUT_MILLIS = 2 * 1000;
+    private static final long RETRY_INTERVAL_MILLIS = 1 * 1000;
+    private static final long HEART_BEAT_INTERVAL_MILLIS = 2 * 1000;
+    private static final long HEART_BEAT_TIMEOUT_MILLIS = 1 * 1000;
 
     /**
      * 错误回调
@@ -36,7 +42,7 @@ public final class LongLiveSocket {
      * 读数据回调
      */
     public interface DataCallback {
-        void onData(byte[] data, int offset, int len);
+        void onData(String data, int offset, int len) throws JSONException;
     }
 
 
@@ -48,7 +54,7 @@ public final class LongLiveSocket {
         void onFail(byte[] data, int offset, int len);
     }
 
-
+    private final String localIp;
     private final String mHost;
     private final int mPort;
     private final DataCallback mDataCallback;
@@ -65,8 +71,9 @@ public final class LongLiveSocket {
     private volatile int mSeqNumHeartBeatSent;
     private volatile int mSeqNumHeartBeatRecv;
 
+    private byte[] mHeartBeat;
+
     private final Runnable mHeartBeatTask = new Runnable() {
-        private byte[] mHeartBeat = new byte[0];
 
         @Override
         public void run() {
@@ -104,10 +111,12 @@ public final class LongLiveSocket {
     };
 
 
-    public LongLiveSocket(String host, int port,
+    public LongLiveSocket(String localIp, String host, int port,
                           DataCallback dataCallback, ErrorCallback errorCallback) {
+        this.localIp = localIp;
         mHost = host;
         mPort = port;
+        mHeartBeat = new byte[0];
         mDataCallback = dataCallback;
         mErrorCallback = errorCallback;
 
@@ -174,8 +183,8 @@ public final class LongLiveSocket {
             try {
                 OutputStream outputStream = socket.getOutputStream();
                 DataOutputStream out = new DataOutputStream(outputStream);
-                out.writeInt(len);
                 out.write(data, offset, len);
+                out.flush();
                 callback.onSuccess();
             } catch (IOException e) {
                 Log.e(TAG, "write: ", e);
@@ -263,37 +272,46 @@ public final class LongLiveSocket {
         public void run() {
             try {
                 readResponse();
-            } catch (IOException e) {
+            } catch (IOException | JSONException e) {
                 Log.e(TAG, "ReaderTask#run: ", e);
             }
         }
 
-        private void readResponse() throws IOException {
-            // For simplicity, assume that a msg will not exceed 1024-byte
-            byte[] buffer = new byte[1024];
+        private void readResponse() throws IOException, JSONException {
             InputStream inputStream = mSocket.getInputStream();
             DataInputStream in = new DataInputStream(inputStream);
+            // For simplicity, assume that a msg will not exceed 1024-byte
+            byte[] buffer = new byte[1024];
             while (true) {
-                int nbyte = in.readInt();
+/*                int nbyte = in.readInt();
                 if (nbyte == 0) {
                     Log.i(TAG, "readResponse: heart beat received");
                     mUIHandler.removeCallbacks(mHeartBeatTimeoutTask);
                     mSeqNumHeartBeatRecv = mSeqNumHeartBeatSent;
                     continue;
-                }
+                }*/
 
-                if (nbyte > buffer.length) {
-                    throw new IllegalStateException("Receive message with len " + nbyte +
-                            " which exceeds limit " + buffer.length);
-                }
+//                if (nbyte > buffer.length) {
+//                    throw new IllegalStateException("Receive message with len " + nbyte +
+//                            " which exceeds limit " + buffer.length);
+//                }
 
-                if (readn(in, buffer, nbyte) != 0) {
-                    // Socket might be closed twice but it does no harm
-                    silentlyClose(mSocket);
-                    // Socket will be re-connected by writer-thread if you want
-                    break;
+//                if (readn(in, buffer, nbyte) != 0) {
+//                    // Socket might be closed twice but it does no harm
+//                    silentlyClose(mSocket);
+//                    // Socket will be re-connected by writer-thread if you want
+//                    break;
+//                }
+                int n;
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                while (true) {
+                    n = in.read(buffer);
+                    if(n <=0){
+                        break;
+                    }
+                    baos.write(buffer, 0, n);
                 }
-                mDataCallback.onData(buffer, 0, nbyte);
+                mDataCallback.onData(baos.toString(), 0, buffer.length);
             }
         }
 
