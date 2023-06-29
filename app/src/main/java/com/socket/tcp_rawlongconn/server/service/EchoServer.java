@@ -1,8 +1,6 @@
 package com.socket.tcp_rawlongconn.server.service;
 
-import android.os.Bundle;
 import android.os.Handler;
-import android.os.Message;
 import android.util.Log;
 
 import com.google.gson.Gson;
@@ -11,13 +9,11 @@ import com.socket.tcp_rawlongconn.model.Callback;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -55,6 +51,7 @@ public class EchoServer {
             while (true) {
                 try {
                     Socket client = serverSocket.accept();
+                    client.setKeepAlive(true);
                     Log.e(TAG, "有客户端请求链接");
                     handleClient(client);
                 } catch (IOException e) {
@@ -100,11 +97,14 @@ public class EchoServer {
         while ((n = in.read(buffer)) > 0) {
             baos.write(buffer, 0, n);
         }
-        CMessage rcvMsg = new Gson().fromJson(baos.toString(), CMessage.class);
-        CMessage sndMsg = new CMessage(rcvMsg.getTo(), rcvMsg.getFrom(), rcvMsg.getCode(), rcvMsg.getType(),"你好"+rcvMsg.getFrom()+",我已收到消息："+rcvMsg.getMsg());
-        out.write(sndMsg.toJson().getBytes());
-        out.flush();
-        handler.post(() -> rcvMsgCallback.onEvent(rcvMsg, null));
+        if(baos.size() > 0){
+            CMessage rcvMsg = new Gson().fromJson(baos.toString(), CMessage.class);
+            CMessage sndMsg = new CMessage(rcvMsg.getTo(), rcvMsg.getFrom(), rcvMsg.getCode(), rcvMsg.getType(), "你好" + rcvMsg.getFrom() + ",我已收到消息：" + rcvMsg.getMsg());
+            out.write(sndMsg.toJson().getBytes());
+            out.flush();
+            handler.post(() -> rcvMsgCallback.onEvent(rcvMsg, null));
+        }
+
     }
 
 }
