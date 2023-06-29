@@ -20,6 +20,10 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.TimeUnit;
 
+//因为Android是单线程模型，不允许程序员在自定义的线程类中直接操作UI界面，
+// 为了解决这个问题，Android开发了Handler对象，由它来负责与子线程进行通信，从而让子线程与主线程之间建立起协作的桥梁，
+// 当然也就可以传递数据（大多使用Message对象传递），使Android的UI更新问题得到解决。
+// https://blog.csdn.net/dlwh_123/article/details/36174025
 public final class LongLiveSocket {
     private static final String TAG = "LongLiveSocket";
 
