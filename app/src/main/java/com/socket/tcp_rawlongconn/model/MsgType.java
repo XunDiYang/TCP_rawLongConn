@@ -5,5 +5,5 @@ public interface MsgType {
 
     int TEXT = 2;
 
-//    int PING = 3;
+    int PING = 3;
 }
