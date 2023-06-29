@@ -1,15 +1,12 @@
 package com.socket.tcp_rawlongconn.server.view;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
-import android.text.TextUtils;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.socket.tcp_rawlongconn.R;
 import com.socket.tcp_rawlongconn.model.CMessage;
@@ -22,6 +19,19 @@ public class ServerActivity extends AppCompatActivity {
     private EchoServer mEchoServer;
     private TextView txtRcvMsg;
     private TextView txtlocalip;
+    private Callback<Void> rcvMsgCallback = new Callback<Void>() {
+        @Override
+        public void onEvent(CMessage cMessage, Void unused) {
+            if (cMessage.getCode() == 200) {
+                Toast.makeText(ServerActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
+                if (!cMessage.getMsg().isEmpty()) {
+                    txtRcvMsg.setText(cMessage.getMsg());
+                }
+            } else {
+                Toast.makeText(ServerActivity.this, "连接失败", Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -44,18 +54,4 @@ public class ServerActivity extends AppCompatActivity {
                 "ip='" + serverIp + '\'' +
                         ", port=" + serverPort;
     }
-
-    private Callback<Void> rcvMsgCallback = new Callback<Void>() {
-        @Override
-        public void onEvent(CMessage cMessage, Void unused) {
-            if (cMessage.getCode() == 200) {
-                Toast.makeText(ServerActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
-                if(!cMessage.getMsg().isEmpty()){
-                    txtRcvMsg.setText(cMessage.getMsg());
-                }
-            } else {
-                Toast.makeText(ServerActivity.this, "连接失败", Toast.LENGTH_SHORT).show();
-            }
-        }
-    };
 }
