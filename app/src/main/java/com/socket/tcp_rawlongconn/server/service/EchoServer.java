@@ -5,8 +5,11 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 
+import com.google.gson.Gson;
+import com.socket.tcp_rawlongconn.model.CMessage;
 import com.socket.tcp_rawlongconn.model.Callback;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -55,7 +58,9 @@ public class EchoServer {
                     Log.e(TAG, "有客户端请求链接");
                     handleClient(client);
                 } catch (IOException e) {
-                    handler.post(() -> rcvMsgCallback.onEvent(300, "", null));
+                    CMessage cMessage = new CMessage();
+                    cMessage.setCode(300);
+                    handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
                     Log.e(TAG, "有客户端链接失败" + e.getMessage());
                 }
             }
@@ -67,13 +72,17 @@ public class EchoServer {
             try {
                 doHandleClient(socket);
             } catch (IOException e) {
-                handler.post(() -> rcvMsgCallback.onEvent(300, "", null));
+                CMessage cMessage = new CMessage();
+                cMessage.setCode(300);
+                handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
                 Log.e(TAG, "handleClient: ", e);
             } finally {
                 try {
                     socket.close();
                 } catch (IOException e) {
-                    handler.post(() -> rcvMsgCallback.onEvent(300, "", null));
+                    CMessage cMessage = new CMessage();
+                    cMessage.setCode(300);
+                    handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
                     Log.e(TAG, "handleClient: ", e);
                 }
             }
@@ -81,18 +90,21 @@ public class EchoServer {
     }
 
     private void doHandleClient(Socket socket) throws IOException {
-        InputStream in = (socket.getInputStream());
+        InputStream inputStream = (socket.getInputStream());
+        DataInputStream in = new DataInputStream(inputStream);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
         OutputStream out = (socket.getOutputStream());
         byte[] buffer = new byte[1024];
         int n;
 
         while ((n = in.read(buffer)) > 0) {
-            String rcvMsg = new String(buffer, StandardCharsets.UTF_8);
-            Log.e(TAG, "doHandleClient1: " + rcvMsg);
-            handler.post(() -> rcvMsgCallback.onEvent(200, rcvMsg, null));
-            Log.e(TAG, "doHandleClient2: " + rcvMsg);
-            out.write(buffer, 0, n);
+            baos.write(buffer, 0, n);
         }
+        CMessage rcvMsg = new Gson().fromJson(baos.toString(), CMessage.class);
+        CMessage sndMsg = new CMessage(rcvMsg.getTo(), rcvMsg.getFrom(), rcvMsg.getCode(), rcvMsg.getType(),"你好"+rcvMsg.getFrom()+",我已收到消息："+rcvMsg.getMsg());
+        out.write(sndMsg.toJson().getBytes());
+        out.flush();
+        handler.post(() -> rcvMsgCallback.onEvent(rcvMsg, null));
     }
 
 }
