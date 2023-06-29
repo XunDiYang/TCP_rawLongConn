@@ -1,7 +1,5 @@
 package com.socket.tcp_rawlongconn.server.view;
 
-import androidx.appcompat.app.AppCompatActivity;
-
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -9,6 +7,8 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AppCompatActivity;
 
 import com.socket.tcp_rawlongconn.R;
 import com.socket.tcp_rawlongconn.utils.NetUtils;
@@ -41,8 +41,8 @@ public class ServerStartActivity extends AppCompatActivity {
             } else {
                 int serverPort = Integer.parseInt(txtServerPort.getText().toString());
                 Intent intent = new Intent(ServerStartActivity.this, ServerActivity.class);
-                intent.putExtra("serverIp",ip);
-                intent.putExtra("serverPort",serverPort);
+                intent.putExtra("serverIp", ip);
+                intent.putExtra("serverPort", serverPort);
                 startActivity(intent);
             }
 
