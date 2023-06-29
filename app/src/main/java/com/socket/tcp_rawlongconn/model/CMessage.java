@@ -17,11 +17,11 @@ public class CMessage implements Serializable {
     @SerializedName("msg")
     private String msg;
 
-    public CMessage(){
+    public CMessage() {
 
     }
 
-    public CMessage(String from, String to, int code, int type, String msg){
+    public CMessage(String from, String to, int code, int type, String msg) {
         this.from = from;
         this.to = to;
         this.code = code;
