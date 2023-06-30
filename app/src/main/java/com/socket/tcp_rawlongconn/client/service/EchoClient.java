@@ -2,8 +2,7 @@ package com.socket.tcp_rawlongconn.client.service;
 
 import android.util.Log;
 
-import com.google.gson.Gson;
-import com.socket.tcp_rawlongconn.model.CMessage;
+import com.socket.tcp_rawlongconn.client.callback.WritingCallback;
 
 public class EchoClient {
     private static final String TAG = "EchoClient";
@@ -13,17 +12,14 @@ public class EchoClient {
     public EchoClient(String localIp, String host, int port) {
         mLongLiveSocket = new LongLiveSocket(localIp,
                 host, port,
-                (cMsgStr, offset, len) ->
-                {
-                    Gson gson = new Gson();
-                    CMessage cMsg = gson.fromJson(String.valueOf(cMsgStr), CMessage.class);
-                    Log.i(TAG, "EchoClient: received: " + cMsg.toString());
-                },
+                (cMsg, offset, len) ->
+                        Log.i(TAG, "EchoClient: received: " + cMsg.toString()),
                 () -> true);
     }
 
     public void send(String msg) {
-        mLongLiveSocket.write((msg + "\n").getBytes(), new LongLiveSocket.WritingCallback() {
+//        TODO: 分隔符号：msg + "\0\0\0"
+        mLongLiveSocket.write((msg + "\0\0\0").getBytes(), new WritingCallback() {
             @Override
             public void onSuccess() {
                 Log.d(TAG, "onSuccess: ");
