@@ -1,3 +1,8 @@
+//因为Android是单线程模型，不允许程序员在自定义的线程类中直接操作UI界面，
+// 为了解决这个问题，Android开发了Handler对象，由它来负责与子线程进行通信，从而让子线程与主线程之间建立起协作的桥梁，
+// 当然也就可以传递数据（大多使用Message对象传递），使Android的UI更新问题得到解决。
+// https://blog.csdn.net/dlwh_123/article/details/36174025
+
 package com.socket.tcp_rawlongconn.client.service;
 
 import android.os.Handler;
@@ -5,6 +10,10 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.util.Log;
 
+import com.google.gson.Gson;
+import com.socket.tcp_rawlongconn.client.callback.DataCallback;
+import com.socket.tcp_rawlongconn.client.callback.ErrorCallback;
+import com.socket.tcp_rawlongconn.client.callback.WritingCallback;
 import com.socket.tcp_rawlongconn.model.CMessage;
 import com.socket.tcp_rawlongconn.model.MsgType;
 
@@ -17,16 +26,13 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
-//因为Android是单线程模型，不允许程序员在自定义的线程类中直接操作UI界面，
-// 为了解决这个问题，Android开发了Handler对象，由它来负责与子线程进行通信，从而让子线程与主线程之间建立起协作的桥梁，
-// 当然也就可以传递数据（大多使用Message对象传递），使Android的UI更新问题得到解决。
-// https://blog.csdn.net/dlwh_123/article/details/36174025
 public final class LongLiveSocket {
     private static final String TAG = "LongLiveSocket";
-
     private static final long RETRY_INTERVAL_MILLIS = 3 * 1000;
     private static final long HEART_BEAT_INTERVAL_MILLIS = 5 * 1000;
     private static final long HEART_BEAT_TIMEOUT_MILLIS = 2 * 1000;
@@ -52,7 +58,7 @@ public final class LongLiveSocket {
         mPort = port;
 //        mHeartBeat = new byte[0];
         CMessage heartBeatMsg = new CMessage(localIp,mHost,200, MsgType.PING,"");
-        mHeartBeat = (heartBeatMsg.toJson()+"\n").getBytes();
+        mHeartBeat = (heartBeatMsg.toJson()+"\0\0\0").getBytes();
         mDataCallback = dataCallback;
         mErrorCallback = errorCallback;
 
@@ -79,7 +85,7 @@ public final class LongLiveSocket {
 
             try {
                 Socket socket = new Socket(mHost, mPort);
-                socket.setKeepAlive(true);
+//                socket.setKeepAlive(true);
                 socket.setReceiveBufferSize(1024);
                 socket.setSendBufferSize(1024);
                 synchronized (mLock) {
@@ -114,6 +120,40 @@ public final class LongLiveSocket {
         write(data, 0, data.length, callback);
     }
 
+    public void write(byte[] data, int offset, int len, WritingCallback callback) {
+        mWriterHandler.post(() -> {
+            Socket socket = getSocket();
+            if (socket == null) {
+                // 心跳超时的情况下，这里 socket 会是 null
+                initSocket();
+                socket = getSocket();
+                if (socket == null) {
+                    if (!closed()) {
+                        callback.onFail(data, offset, len);
+                    } /* else {
+                        // silently drop the data
+                    } */
+                    return;
+                }
+            }
+            try {
+                OutputStream outputStream = socket.getOutputStream();
+                DataOutputStream out = new DataOutputStream(outputStream);
+
+                out.write(data, offset, len);
+                out.flush();
+                callback.onSuccess();
+            } catch (IOException e) {
+                Log.e(TAG, "write: ", e);
+                closeSocket();
+                callback.onFail(data, offset, len);
+                if (!closed() && mErrorCallback.onError()) {
+                    initSocket();
+                }
+            }
+        });
+    }
+
     private final Runnable mHeartBeatTask = new Runnable() {
 
         @Override
@@ -146,43 +186,11 @@ public final class LongLiveSocket {
         }
     };
 
-    public void write(byte[] data, int offset, int len, WritingCallback callback) {
-        mWriterHandler.post(() -> {
-            Socket socket = getSocket();
-            if (socket == null) {
-                // 心跳超时的情况下，这里 socket 会是 null
-                initSocket();
-                socket = getSocket();
-                if (socket == null) {
-                    if (!closed()) {
-                        callback.onFail(data, offset, len);
-                    } /* else {
-                        // silently drop the data
-                    } */
-                    return;
-                }
-            }
-            try {
-                OutputStream outputStream = socket.getOutputStream();
-                DataOutputStream out = new DataOutputStream(outputStream);
-                out.write(data, offset, len);
-                out.flush();
-                callback.onSuccess();
-            } catch (IOException e) {
-                Log.e(TAG, "write: ", e);
-                closeSocket();
-                callback.onFail(data, offset, len);
-                if (!closed() && mErrorCallback.onError()) {
-                    initSocket();
-                }
-            }
-        });
-    }
-
     private final Runnable mHeartBeatTimeoutTask = () -> {
         Log.e(TAG, "mHeartBeatTimeoutTask#run: heart beat timeout");
         closeSocket();
     };
+
 
     private boolean closed() {
         synchronized (mLock) {
@@ -234,31 +242,6 @@ public final class LongLiveSocket {
         mWriterThread.interrupt();
     }
 
-    /**
-     * 错误回调
-     */
-    public interface ErrorCallback {
-        /**
-         * 如果需要重连，返回 true
-         */
-        boolean onError();
-    }
-
-    /**
-     * 读数据回调
-     */
-    public interface DataCallback {
-        void onData(String data, int offset, int len) throws JSONException;
-    }
-
-    /**
-     * 写数据回调
-     */
-    public interface WritingCallback {
-        void onSuccess();
-
-        void onFail(byte[] data, int offset, int len);
-    }
 
     private class ReaderTask implements Runnable {
 
@@ -280,57 +263,59 @@ public final class LongLiveSocket {
         private void readResponse() throws IOException, JSONException {
             InputStream inputStream = mSocket.getInputStream();
             DataInputStream in = new DataInputStream(inputStream);
-            // For simplicity, assume that a msg will not exceed 1024-byte
-            byte[] buffer = new byte[1024];
+
             while (true) {
-/*                int nbyte = in.readInt();
-                if (nbyte == 0) {
-                    Log.i(TAG, "readResponse: heart beat received");
-                    mUIHandler.removeCallbacks(mHeartBeatTimeoutTask);
-                    mSeqNumHeartBeatRecv = mSeqNumHeartBeatSent;
-                    continue;
-                }*/
-
-//                if (nbyte > buffer.length) {
-//                    throw new IllegalStateException("Receive message with len " + nbyte +
-//                            " which exceeds limit " + buffer.length);
-//                }
-
-//                if (readn(in, buffer, nbyte) != 0) {
-//                    // Socket might be closed twice but it does no harm
-//                    silentlyClose(mSocket);
-//                    // Socket will be re-connected by writer-thread if you want
-//                    break;
-//                }
                 int n;
+                byte[] buffer = new byte[1024];
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                while (true) {
-                    n = in.read(buffer);
-                    if (n <= 0) {
-                        break;
-                    }
+                while ((n = in.read(buffer)) > 0) {
                     baos.write(buffer, 0, n);
                 }
-                mDataCallback.onData(baos.toString(), 0, buffer.length);
+                if (baos.size() > 0) {
+                    ArrayList<String> rcvCMsgStrArray = trimNull(baos.toByteArray());
+                    for (String rcvCMsgStr : rcvCMsgStrArray) {
+                        CMessage rcvMsg = new Gson().fromJson(rcvCMsgStr, CMessage.class);
+                        if(rcvMsg.getType() == MsgType.PING){
+                            Log.i(TAG, "readResponse: heart beat received");
+                            mUIHandler.removeCallbacks(mHeartBeatTimeoutTask);
+                            mSeqNumHeartBeatRecv = mSeqNumHeartBeatSent;
+                        }else{
+                            mDataCallback.onData(rcvMsg, 0, buffer.length);
+                        }
+                    }
+                }
             }
         }
 
-        private int readn(InputStream in, byte[] buffer, int n) throws IOException {
-            int offset = 0;
-            while (n > 0) {
-                int readBytes = in.read(buffer, offset, n);
-                if (readBytes < 0) {
-                    // EoF
-                    break;
+        private ArrayList<String> trimNull(byte[] bytes) throws UnsupportedEncodingException {
+//        000为分隔符
+            ArrayList<Byte> list = new ArrayList<Byte>();
+            ArrayList<String> strArrayList = new ArrayList<String>();
+            int cntZero = 0;
+            for (int i = 0; bytes != null && i < bytes.length; i++) {
+                if (0 != bytes[i]) {
+                    list.add(bytes[i]);
+                } else {
+                    if (cntZero == 2) {
+//                    将前面的字节流转为str
+                        byte[] newbytes = new byte[list.size()];
+                        for (int j = 0; j < list.size(); j++) {
+                            newbytes[j] = (Byte) list.get(j);
+                        }
+                        list.clear();
+                        strArrayList.add(new String(newbytes, "UTF-8"));
+                        cntZero = 0;
+                    } else {
+                        cntZero += 1;
+                    }
                 }
-                n -= readBytes;
-                offset += readBytes;
             }
-            return n;
+            return strArrayList;
         }
     }
 
 
 }
+
 
 
