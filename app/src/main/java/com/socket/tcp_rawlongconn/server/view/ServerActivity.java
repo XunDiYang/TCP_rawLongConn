@@ -10,7 +10,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.socket.tcp_rawlongconn.R;
 import com.socket.tcp_rawlongconn.model.CMessage;
-import com.socket.tcp_rawlongconn.model.Callback;
+import com.socket.tcp_rawlongconn.model.MsgType;
+import com.socket.tcp_rawlongconn.server.callback.Callback;
 import com.socket.tcp_rawlongconn.server.service.EchoServer;
 
 public class ServerActivity extends AppCompatActivity {
@@ -24,8 +25,10 @@ public class ServerActivity extends AppCompatActivity {
         public void onEvent(CMessage cMessage, Void unused) {
             if (cMessage.getCode() == 200) {
                 Toast.makeText(ServerActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
-                if (!cMessage.getMsg().isEmpty()) {
-                    txtRcvMsg.setText(cMessage.getMsg());
+                if (cMessage.getType() == MsgType.TEXT && !cMessage.getMsg().isEmpty()) {
+                    txtRcvMsg.setText(txtRcvMsg.getText().toString() + "\n" + cMessage.getMsg());
+                }else if (cMessage.getType() == MsgType.PING){
+                    txtRcvMsg.setText(txtRcvMsg.getText().toString() + "\n" + "收到心跳包");
                 }
             } else {
                 Toast.makeText(ServerActivity.this, "连接失败", Toast.LENGTH_SHORT).show();
