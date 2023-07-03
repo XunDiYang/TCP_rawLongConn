@@ -7,6 +7,6 @@ import org.json.JSONException;
  * 读数据回调
  */
 public interface DataCallback {
-    void onData(CMessage data, int offset, int len) throws JSONException;
+    void onData(CMessage data) throws JSONException;
 }
 
