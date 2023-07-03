@@ -35,7 +35,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginLeft="25dp"
-        android:layout_marginTop="200dp"
+        android:layout_marginTop="50dp"
         android:layout_marginRight="25dp"
         android:orientation="vertical">
 
@@ -44,8 +44,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="请输入需要发送的内容"
-            android:textSize="15sp"
-            android:inputType="text"/>
+            android:inputType="text"
+            android:textSize="15sp" />
 
         <Button
             android:id="@+id/btnSndMsg"
@@ -56,13 +56,15 @@
             android:textSize="30sp" />
 
         <TextView
-            android:id="@+id/rtnMsg"
+            android:id="@+id/rcvMsg"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="100dp"
+            android:layout_marginTop="50dp"
             android:hint="服务器返回内容"
             android:textColor="@color/black"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            android:scrollbars="vertical"
+            android:singleLine="false"/>
 
     </LinearLayout>
 
