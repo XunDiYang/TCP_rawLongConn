@@ -3,163 +3,150 @@ package com.socket.tcp_rawlongconn.server.service;
 import android.os.Handler;
 import android.util.Log;
 
-import com.google.gson.Gson;
 import com.socket.tcp_rawlongconn.model.CMessage;
 import com.socket.tcp_rawlongconn.model.MsgType;
 import com.socket.tcp_rawlongconn.server.callback.Callback;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class EchoServer {
     private static final String TAG = "EchoServer";
 
     private final int mPort;
-    private final ExecutorService mExecutorService;
     private Callback<Void> rcvMsgCallback;
+    private volatile boolean running = false;
+    private Thread connWatchDog;
     private Handler handler;
+
+//    3s的判断
+    private long receiveTimeDelay=3000;
 
     public EchoServer(int port, Callback<Void> rcvMsgCallback) {
         mPort = port;
         this.rcvMsgCallback = rcvMsgCallback;
-        mExecutorService = Executors.newFixedThreadPool(4);
         handler = new Handler();
     }
 
-    public EchoServer(int port) {
-        mPort = port;
-        handler = new Handler();
-        mExecutorService = Executors.newFixedThreadPool(4);
+    @SuppressWarnings("deprecation")
+    public void stopServer() {
+        if (running){
+            running = false;
+        }
+        if (connWatchDog != null){
+            connWatchDog.stop();
+        }
     }
 
-    public void run() {
-        mExecutorService.submit(() -> {
+    public void start() {
+        if (running) return;
+        running = true;
+        connWatchDog = new Thread(new ConnWatchDog());
+        connWatchDog.start();
+    }
+
+    class ConnWatchDog implements Runnable {
+
+        @Override
+        public void run() {
             ServerSocket serverSocket;
             try {
-                serverSocket = new ServerSocket(mPort);
-                Log.e(TAG, "服务器启动成功");
+                serverSocket = new ServerSocket(mPort, 5);
+                Log.d(TAG, "服务器启动成功");
+                while (running) {
+                    try {
+                        Socket client = serverSocket.accept();
+                        Log.d(TAG, "有客户端请求链接");
+                        new Thread(new HandleClient(client)).start();
+                    } catch (IOException e) {
+                        CMessage cMessage = new CMessage();
+                        cMessage.setCode(300);
+                        handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
+                        Log.e(TAG, "有客户端链接失败" + e.getMessage());
+                    }
+                }
             } catch (IOException e) {
                 Log.e(TAG, "服务器启动失败" + e.getMessage());
-                return;
+                stopServer();
             }
-            while (true) {
-                try {
-                    Socket client = serverSocket.accept();
-//                    client.setKeepAlive(true);
-                    Log.e(TAG, "有客户端请求链接");
-                    handleClient(client);
-                } catch (IOException e) {
-                    CMessage cMessage = new CMessage();
-                    cMessage.setCode(300);
-                    handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
-                    Log.e(TAG, "有客户端链接失败" + e.getMessage());
-                }
-            }
-        });
-    }
 
-    private void handleClient(Socket socket) {
-        mExecutorService.submit(() -> {
-            try {
-                doHandleClient(socket);
-            } catch (IOException e) {
-                CMessage cMessage = new CMessage();
-                cMessage.setCode(300);
-                handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
-                Log.e(TAG, "handleClient: ", e);
-            } finally {
-                try {
-                    socket.close();
-                } catch (IOException e) {
-                    CMessage cMessage = new CMessage();
-                    cMessage.setCode(300);
-                    handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
-                    Log.e(TAG, "handleClient: ", e);
-                }
-            }
-        });
-    }
-
-    private void doHandleClient(Socket socket) throws IOException {
-        InputStream inputStream = (socket.getInputStream());
-        DataInputStream in = new DataInputStream(inputStream);
-
-        OutputStream outputStream = (socket.getOutputStream());
-        DataOutputStream out = new DataOutputStream(outputStream);
-        byte[] buffer = new byte[1024];
-        int n;
-
-        processPkg(in, out);
-    }
-
-    private void processHeartBeat(DataInputStream in, DataOutputStream out) throws IOException {
-        byte[] buffer = new byte[1024];
-        int n;
-        while ((n = in.read(buffer)) > 0) {
-            out.write(buffer, 0, n);
-            out.flush();
-        }
-        CMessage heartMsg = new CMessage("", "", 200, MsgType.PING, "");
-    }
-
-    private void processPkg(DataInputStream in, DataOutputStream out) throws IOException {
-        byte[] buffer = new byte[1024];
-        int n;
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        while ((n = in.read(buffer)) > 0) {
-            baos.write(buffer, 0, n);
-        }
-        if (baos.size() > 0) {
-            ArrayList<String> rcvCMsgStrArray = trimNull(baos.toByteArray());
-            for (String rcvCMsgStr : rcvCMsgStrArray) {
-                CMessage rcvMsg = new Gson().fromJson(rcvCMsgStr, CMessage.class);
-                CMessage sndMsg = new CMessage(rcvMsg.getTo(), rcvMsg.getFrom(), rcvMsg.getCode(), rcvMsg.getType(), "你好" + rcvMsg.getFrom() + ",我已收到消息：" + rcvMsg.getMsg());
-                byte[] sndData = (sndMsg.toJson()+"\0\0\0").getBytes();
-                int sndDataLen = sndData.length;
-//                out.writeInt(sndDataLen);
-                out.write(sndData, 0, sndDataLen);
-                out.flush();
-                handler.post(() -> rcvMsgCallback.onEvent(rcvMsg, null));
-            }
         }
     }
 
-    private ArrayList<String> trimNull(byte[] bytes) throws UnsupportedEncodingException {
-//        000为分隔符
-        ArrayList<Byte> list = new ArrayList<Byte>();
-        ArrayList<String> strArrayList = new ArrayList<String>();
-        int cntZero = 0;
-        for (int i = 0; bytes != null && i < bytes.length; i++) {
-            if (0 != bytes[i]) {
-                list.add(bytes[i]);
-            } else {
-                if (cntZero == 2) {
-//                    将前面的字节流转为str
-                    byte[] newbytes = new byte[list.size()];
-                    for (int j = 0; j < list.size(); j++) {
-                        newbytes[j] = (Byte) list.get(j);
+    class HandleClient implements Runnable {
+        Socket s;
+        boolean run = true;
+
+        long lastReceiveTime = System.currentTimeMillis();
+
+        public HandleClient(Socket s) {
+            this.s = s;
+        }
+
+        @Override
+        public void run() {
+            while (running && run) {
+//                TODO: 心跳包超时
+                if(System.currentTimeMillis()-lastReceiveTime>receiveTimeDelay){
+                    closeClientSocket();
+                }else{
+                    try {
+                        InputStream in = s.getInputStream();
+                        if (in.available() > 0) {
+                            ObjectInputStream ois = new ObjectInputStream(in);
+                            Object obj = ois.readObject();
+                            Log.d(TAG, "收到消息");
+                            lastReceiveTime = System.currentTimeMillis();
+                            CMessage cMessage = (CMessage) obj;
+                            Object out = new CMessage(cMessage.getTo(),cMessage.getFrom(),cMessage.getCode(), cMessage.getType(),cMessage.getMsg());
+                            cMessage.setMsg("来自"+ cMessage.getFrom()+"客户端: "+cMessage.getMsg());
+                            if(cMessage.getCode()!=200 || cMessage.getType() == MsgType.TEXT){
+                                handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
+                            }
+                            else if(cMessage.getType() == MsgType.PING){
+                                Log.d(TAG,"收到心跳包");
+                            }
+                            if (out != null) {
+                                ObjectOutputStream oos = new ObjectOutputStream(s.getOutputStream());
+                                oos.writeObject(out);
+                                oos.flush();
+                                Log.d(TAG, "发送消息");
+                            }
+                        } else {
+                            Thread.sleep(10);
+                        }
+                    } catch (Exception e) {
+                        CMessage cMessage = new CMessage();
+                        cMessage.setCode(300);
+                        handler.post(() -> rcvMsgCallback.onEvent(cMessage, null));
+                        Log.e(TAG, "handleClient: ", e);
+                        closeClientSocket();
                     }
-                    list.clear();
-                    strArrayList.add(new String(newbytes, "UTF-8"));
-                    cntZero = 0;
-                } else {
-                    cntZero += 1;
                 }
+
             }
         }
 
-        return strArrayList;
+        private void closeClientSocket() {
+            if (run) {
+                run = false;
+            }
+            if (s != null) {
+                try {
+                    s.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            handler.post(() -> rcvMsgCallback.onEvent(new CMessage("","",100,MsgType.CONNECT,""), null));
+            Log.e(TAG, "关闭：" + s.getRemoteSocketAddress());
+        }
     }
+
 }
 
 
