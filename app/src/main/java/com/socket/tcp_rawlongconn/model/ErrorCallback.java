@@ -7,5 +7,5 @@ public interface ErrorCallback {
     /**
      * 如果需要重连，返回 true
      */
-    boolean onError();
+    void onError();
 }
