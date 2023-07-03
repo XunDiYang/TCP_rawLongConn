@@ -29,7 +29,7 @@ public class CMessage implements Serializable {
         this.msg = msg;
     }
 
-    public String toJson() {
+    public String toJsonStr() {
         Gson gson = new Gson();
         return gson.toJson(this);
     }
