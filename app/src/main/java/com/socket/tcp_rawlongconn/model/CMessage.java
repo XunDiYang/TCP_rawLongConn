@@ -5,6 +5,14 @@ import com.google.gson.annotations.SerializedName;
 
 import java.io.Serializable;
 
+/*
+* code:
+* 100：连接成功
+* 200: 信息收到
+* 400：客户端错误
+* 500：服务器端错误
+* */
+
 public class CMessage implements Serializable {
     @SerializedName("from")
     private String from;
