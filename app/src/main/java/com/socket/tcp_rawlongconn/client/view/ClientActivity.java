@@ -14,7 +14,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.socket.tcp_rawlongconn.R;
-import com.socket.tcp_rawlongconn.client.callback.DataCallback;
+import com.socket.tcp_rawlongconn.client.callback.ReadingCallback;
 import com.socket.tcp_rawlongconn.client.callback.ErrorCallback;
 import com.socket.tcp_rawlongconn.client.callback.WritingCallback;
 import com.socket.tcp_rawlongconn.client.service.LongLiveSocket;
@@ -28,6 +28,7 @@ public class ClientActivity extends AppCompatActivity {
     private int serverPort;
     private EditText txtSndMsg;
     private TextView txtRcvMsg;
+    private LongLiveSocket clientThread;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -42,9 +43,9 @@ public class ClientActivity extends AppCompatActivity {
         TextView txtlocalIp = findViewById(R.id.localip);
         txtlocalIp.setText(ipPortToString());
 
-        LongLiveSocket clientThread = new LongLiveSocket(localIp,
+        clientThread = new LongLiveSocket(localIp,
                 serverIp, serverPort,
-                dataCallback,
+                readingCallback,
                 errorCallback);
         clientThread.start();
 
@@ -74,20 +75,28 @@ public class ClientActivity extends AppCompatActivity {
 //            TODO: 如何调用write，估计用handler
             clientThread.write(cMessage, writingCallback);
         });
-
-
     }
 
-    private DataCallback dataCallback = (cMsg) -> {
+    @Override
+    public void finish() {
+        super.finish();
+        clientThread.interrupt();
+    }
+
+    private ReadingCallback readingCallback = (cMsg) -> {
         txtSndMsg.setText("");
-        Log.i(TAG, "EchoClient: received: " + cMsg.toString());
-        if (cMsg.getCode() == 200) {
+        if(cMsg.getCode() == 100){
+            Toast.makeText(ClientActivity.this, "连接成功", Toast.LENGTH_SHORT).show();
+        }
+        else if (cMsg.getCode() == 200) {
+            Log.d(TAG, "EchoClient: received: " + cMsg.toString());
             Toast.makeText(ClientActivity.this, "收到回复", Toast.LENGTH_SHORT).show();
             if (cMsg.getType() == MsgType.TEXT && !cMsg.getMsg().isEmpty()) {
                 String txt = "服务器反馈：" + cMsg.getMsg() + "\n" + txtRcvMsg.getText().toString();
                 txtRcvMsg.setText(txt);
             }
         } else {
+            Log.d(TAG, "EchoClient: received: " + cMsg.toString());
             Toast.makeText(ClientActivity.this, "服务器端错误", Toast.LENGTH_SHORT).show();
         }
     };
