@@ -49,7 +49,6 @@ public class ClientActivity extends AppCompatActivity {
                 errorCallback);
         clientThread.start();
 
-
         txtSndMsg = findViewById(R.id.sndMsg);
         txtRcvMsg = findViewById(R.id.rcvMsg);
         txtRcvMsg.setMovementMethod(ScrollingMovementMethod.getInstance());
@@ -68,19 +67,18 @@ public class ClientActivity extends AppCompatActivity {
                 }
 
                 @Override
-                public void onFail(CMessage cMsg) {
-                    Log.w(TAG, "onFail: fail to write: " + cMsg.toJsonStr());
+                public void onFail(Object cMsg) {
+                    Log.w(TAG, "onFail: fail to write: " + ((CMessage)cMsg).toJsonStr());
                 }
             };
-//            TODO: 如何调用write，估计用handler
             clientThread.write(cMessage, writingCallback);
         });
     }
 
     @Override
     public void finish() {
-        super.finish();
         clientThread.interrupt();
+        super.finish();
     }
 
     private ReadingCallback readingCallback = (cMsg) -> {
