@@ -14,14 +14,15 @@ import com.socket.tcp_rawlongconn.R;
 import com.socket.tcp_rawlongconn.model.CMessage;
 import com.socket.tcp_rawlongconn.model.MsgType;
 import com.socket.tcp_rawlongconn.server.callback.Callback;
-import com.socket.tcp_rawlongconn.server.service.EchoServer;
+import com.socket.tcp_rawlongconn.server.service.HttpServer;
 
 import java.io.IOException;
 
 public class ServerActivity extends AppCompatActivity {
     private String serverIp;
     private int serverPort;
-    private EchoServer mEchoServer;
+//    private EchoServer mEchoServer;
+    private HttpServer httpServer;
     private TextView txtRcvMsg;
     private TextView txtlocalip;
 
@@ -61,19 +62,25 @@ public class ServerActivity extends AppCompatActivity {
         txtRcvMsg.setMovementMethod(ScrollingMovementMethod.getInstance());
 
 
-        mEchoServer = new EchoServer(serverIp, serverPort, rcvMsgCallback);
-        mEchoServer.start();
+//        mEchoServer = new EchoServer(serverIp, serverPort, rcvMsgCallback);
+//        mEchoServer.start();
+        httpServer = new HttpServer(serverIp,serverPort,rcvMsgCallback);
+        httpServer.start();
     }
 
     @Override
     public void finish() {
-        super.finish();
+
         Log.d(TAG, "关闭服务器服务");
         try {
-            mEchoServer.stop();
+//            mEchoServer.stop();
+            httpServer.stop();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } finally {
+            super.finish();
         }
+
     }
 
     @NonNull
